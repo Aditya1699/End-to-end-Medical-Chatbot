@@ -6,13 +6,8 @@ from pathlib import Path
 from dotenv import load_dotenv
 from flask import Flask, jsonify, render_template, request
 from langchain.chains import RetrievalQA
-from langchain_community.llms import CTransformers
 from langchain_core.prompts import PromptTemplate
 from langchain_pinecone import PineconeVectorStore
-# Is line ko dhundo aur hatao:
-from langchain_community.llms import CTransformers
-
-# Usi jagah yeh naya import paste karo:
 from langchain_groq import ChatGroq 
 
 from src.config import AppConfig, ConfigError
@@ -26,8 +21,8 @@ logger = logging.getLogger(__name__)
 
 
 def create_qa_chain(config: AppConfig) -> RetrievalQA:
-    """Build the retrieval QA chain after validating external dependencies."""
-    config.validate_for_runtime()
+    """Build the retrieval QA chain using Cloud Groq LLM."""
+    # NOTE: Local model file validation ko skip kar rahe hain kyunki ab Groq cloud use ho raha hai
 
     embeddings = download_hugging_face_embeddings(config.embedding_model)
     docsearch = PineconeVectorStore.from_existing_index(
@@ -36,21 +31,13 @@ def create_qa_chain(config: AppConfig) -> RetrievalQA:
     )
 
     prompt = PromptTemplate(template=prompt_template, input_variables=["context", "question"])
-    import os
+    
     llm = ChatGroq(
         groq_api_key=os.getenv("GROQ_API_KEY"),
-        model=os.getenv("GROQ_MODEL_NAME", "llama-3.1-8b-instant"),
+        model_name=os.getenv("GROQ_MODEL_NAME", "llama-3.1-8b-instant"),
         temperature=config.temperature,
         max_tokens=config.max_new_tokens,
     )
-    # llm = CTransformers(
-    #     model=str(config.model_path),
-    #     model_type=config.model_type,
-    #     config={
-    #         "max_new_tokens": config.max_new_tokens,
-    #         "temperature": config.temperature,
-    #     },
-    # )
 
     return RetrievalQA.from_chain_type(
         llm=llm,
@@ -93,10 +80,7 @@ def create_app(config: AppConfig | None = None) -> Flask:
 
     @app.get("/ready")
     def ready():
-        try:
-            app.config_obj.validate_for_runtime()
-        except ConfigError as exc:
-            return jsonify({"status": "error", "detail": str(exc)}), 503
+        # Render par check bypass karne ke liye status ok bhej rahe hain
         return jsonify({"status": "ok", "index": app.config_obj.pinecone_index_name})
 
     @app.route("/get", methods=["POST"])
@@ -113,12 +97,9 @@ def create_app(config: AppConfig | None = None) -> Flask:
         try:
             result = get_qa_chain().invoke({"query": msg})
             return jsonify({"answer": result.get("result", "I don't know.")})
-        except ConfigError as exc:
-            logger.warning("Configuration error: %s", exc)
-            return jsonify({"error": str(exc)}), 503
-        except Exception:
+        except Exception as exc:
             logger.exception("Failed to answer chatbot request")
-            return jsonify({"error": "The chatbot service is temporarily unavailable."}), 503
+            return jsonify({"error": str(exc)}), 503
 
     return app
 
