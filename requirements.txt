@@ -1,0 +1,20 @@
+Flask==3.0.3
+python-dotenv==1.0.1
+pypdf==4.3.1
+langchain-groq==0.1.10
+langchain==0.2.17
+langchain-community==0.2.19
+langchain-core==0.2.43
+langchain-huggingface==0.0.3
+langchain-pinecone==0.1.3
+langchain-text-splitters==0.2.4
+
+pinecone-client==5.0.1
+sentence-transformers==3.0.1
+transformers==4.41.2
+huggingface-hub==0.23.5
+ctransformers==0.2.27
+
+waitress==3.0.0
+pytest==8.3.2
+-e .

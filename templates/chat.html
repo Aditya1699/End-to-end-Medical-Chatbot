@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Medical Chatbot</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+  </head>
+  <body>
+    <main class="chat-shell" aria-label="Medical chatbot">
+      <section class="chat-panel">
+        <header class="chat-header">
+          <div class="avatar" aria-hidden="true">+</div>
+          <div>
+            <h1>Medical Chatbot</h1>
+            <p>Evidence-based answers from the configured medical knowledge base</p>
+          </div>
+        </header>
+
+        <div id="messages" class="messages" aria-live="polite"></div>
+
+        <form id="message-form" class="composer">
+          <input
+            id="message-input"
+            name="msg"
+            type="text"
+            autocomplete="off"
+            maxlength="2000"
+            placeholder="Type your medical question..."
+            required
+          />
+          <button id="send-button" type="submit" aria-label="Send message">Send</button>
+        </form>
+      </section>
+    </main>
+
+    <script>
+      const form = document.getElementById("message-form");
+      const input = document.getElementById("message-input");
+      const messages = document.getElementById("messages");
+      const sendButton = document.getElementById("send-button");
+
+      function currentTime() {
+        return new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      }
+
+      function appendMessage(text, sender) {
+        const row = document.createElement("div");
+        row.className = `message-row ${sender}`;
+
+        const bubble = document.createElement("div");
+        bubble.className = "message";
+        bubble.textContent = text;
+
+        const time = document.createElement("span");
+        time.className = "message-time";
+        time.textContent = currentTime();
+        bubble.appendChild(time);
+
+        row.appendChild(bubble);
+        messages.appendChild(row);
+        messages.scrollTop = messages.scrollHeight;
+        return row;
+      }
+
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const text = input.value.trim();
+        if (!text) return;
+
+        appendMessage(text, "user");
+        input.value = "";
+        input.focus();
+        sendButton.disabled = true;
+        const pending = appendMessage("Thinking...", "bot");
+
+        try {
+          const response = await fetch("/get", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ msg: text }),
+          });
+          const payload = await response.json();
+          pending.querySelector(".message").firstChild.textContent =
+            payload.answer || payload.error || "The chatbot service is temporarily unavailable.";
+        } catch (error) {
+          pending.querySelector(".message").firstChild.textContent =
+            "The chatbot service is temporarily unavailable.";
+        } finally {
+          sendButton.disabled = false;
+        }
+      });
+    </script>
+  </body>
+</html>
